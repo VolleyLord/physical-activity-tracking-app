@@ -18,7 +18,11 @@ data class ActivitySession(
         require(
             endedAtEpochMillis == null || endedAtEpochMillis >= startedAtEpochMillis
         ) { "endedAtEpochMillis must be >= start when provided" }
-        require(route.isNotEmpty()) { "route cannot be empty" }
+        // Allow empty route for newly created active sessions
+        // Route will be populated as tracking progresses
+        require(
+            route.isNotEmpty() || (status == ActivityStatus.Active && endedAtEpochMillis == null)
+        ) { "route cannot be empty for completed sessions" }
         if (status == ActivityStatus.Completed) {
             requireNotNull(endedAtEpochMillis) { "completed session must have end time" }
         }
