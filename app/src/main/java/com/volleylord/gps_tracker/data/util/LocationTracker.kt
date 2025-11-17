@@ -1,12 +1,17 @@
 package com.volleylord.gps_tracker.data.util
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
+import android.util.Log
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -39,7 +44,6 @@ class LocationTracker @Inject constructor(
     val stepCount: StateFlow<Long> = _stepCount.asStateFlow()
 
     private var stepSensor: Sensor? = null
-    private var stepListener: SensorEventListener? = null
     private var locationCallback: LocationCallback? = null
 
     private val stepEventListener = object : SensorEventListener {
@@ -60,6 +64,13 @@ class LocationTracker @Inject constructor(
      */
 
     fun startTracking(sessionStartTime: Long): Flow<TrackingPoint> = callbackFlow {
+
+        // Check location permissions before starting
+        if (!hasLocationPermission()) {
+            close(SecurityException("Location permission required"))
+            return@callbackFlow
+        }
+
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
             .setMinUpdateIntervalMillis(2000)
             .setMaxUpdateDelayMillis(10000)
@@ -87,19 +98,41 @@ class LocationTracker @Inject constructor(
                 previousTime = currentTime
                 trySend(point)
             }
+
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                if (!availability.isLocationAvailable) {
+                    Log.w("LocationTracker", "Location services became unavailable")
+                }
+            }
+
+
         }
 
         // Start location updates
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback!!,
-            context.mainLooper
-        )
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback!!,
+                context.mainLooper
+            )
+
+            Log.d("LocationTracker", "Location updates started successfully")
+        } catch (securityException: SecurityException) {
+            // Handle permission-related security exception
+            Log.e("Location", "SecurityException: Location permission missing", securityException)
+        }
 
         // Start step detection
         stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
         stepSensor?.let {
-            sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
+            val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
+            if (registered) {
+                Log.d("LocationTracker", "Step detector sensor registered successfully")
+            } else {
+                Log.w("LocationTracker", "Failed to register step detector sensor")
+            }
+        } ?: run {
+            Log.w("LocationTracker", "Step detector sensor not available on this device")
         }
 
         awaitClose {
@@ -111,8 +144,75 @@ class LocationTracker @Inject constructor(
         }
     }
 
+
     /**
-     * Stops tracking location and steps.
+     * Check if location permissions are granted
+     */
+    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+    }
+
+
+    /**
+     * Pauses only step tracking (location continues).
+     * Used when session is paused but location tracking should continue.
+     */
+    fun pauseStepTracking() {
+        sensorManager.unregisterListener(stepEventListener)
+        // Do NOT reset step count - preserve it for resume
+        // Location tracking continues via locationCallback
+    }
+
+    /**
+     * Resumes step tracking.
+     * Location tracking should already be active.
+     */
+    fun resumeStepTracking() {
+        stepSensor?.let {
+            val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
+            if (registered) {
+                Log.d("LocationTracker", "Step detector sensor resumed successfully")
+            } else {
+                Log.w("LocationTracker", "Failed to resume step detector sensor")
+            }
+        } ?: run {
+            // Re-initialize step sensor if needed
+            stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+            stepSensor?.let {
+                val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
+                if (registered) {
+                    Log.d("LocationTracker", "Step detector sensor re-initialized and registered")
+                } else {
+                    Log.w("LocationTracker", "Failed to register re-initialized step detector sensor")
+                }
+            } ?: Log.w("LocationTracker", "Step detector sensor not available on this device")
+        }
+    }
+
+    /**
+     * Pauses tracking location and steps without resetting step count.
+     * Can be resumed later without losing accumulated data.
+     * @deprecated Use pauseStepTracking() for pause functionality
+     */
+    fun pauseTracking() {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+        }
+        sensorManager.unregisterListener(stepEventListener)
+        // Do NOT reset step count - preserve it for resume
+        // Do NOT set locationCallback to null - need it for resume
+    }
+
+    /**
+     * Stops tracking location and steps completely.
+     * Resets all state including step count.
      */
     fun stopTracking() {
         locationCallback?.let {
