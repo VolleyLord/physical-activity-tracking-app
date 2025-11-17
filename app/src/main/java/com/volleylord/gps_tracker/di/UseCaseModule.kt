@@ -3,6 +3,8 @@ package com.volleylord.gps_tracker.di
 import com.volleylord.gps_tracker.domain.usecase.ObserveActivityHistoryUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveAuthStateUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
+import com.volleylord.gps_tracker.domain.usecase.PauseActivityTrackingUseCase
+import com.volleylord.gps_tracker.domain.usecase.ResumeActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.SignInUseCase
 import com.volleylord.gps_tracker.domain.usecase.SignOutUseCase
 import com.volleylord.gps_tracker.domain.usecase.StartActivityTrackingUseCase
@@ -10,6 +12,8 @@ import com.volleylord.gps_tracker.domain.usecase.StopActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveActivityHistoryUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveAuthStateUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveCurrentSessionUseCaseImpl
+import com.volleylord.gps_tracker.domain.usecase.impl.PauseActivityTrackingUseCaseImpl
+import com.volleylord.gps_tracker.domain.usecase.impl.ResumeActivityTrackingUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.SignInUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.SignOutUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.StartActivityTrackingUseCaseImpl
@@ -57,5 +61,15 @@ interface UseCaseModule {
     fun bindObserveActivityHistoryUseCase(
         impl: ObserveActivityHistoryUseCaseImpl
     ): ObserveActivityHistoryUseCase
+
+    @Binds
+    fun bindPauseActivityTrackingUseCase(
+        impl: PauseActivityTrackingUseCaseImpl
+    ): PauseActivityTrackingUseCase
+
+    @Binds
+    fun bindResumeActivityTrackingUseCase(
+        impl: ResumeActivityTrackingUseCaseImpl
+    ): ResumeActivityTrackingUseCase
 }
 
