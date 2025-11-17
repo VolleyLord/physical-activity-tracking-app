@@ -1,32 +1,38 @@
 package com.volleylord.gps_tracker.data.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.IBinder
-import androidx.core.app.NotificationCompat
-import com.volleylord.gps_tracker.presentation.MainActivity
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
+import com.volleylord.gps_tracker.data.service.notification.TrackingNotificationHelper
+import com.volleylord.gps_tracker.data.util.TimeTracker
+import com.volleylord.gps_tracker.domain.repository.ActivitySessionRepository
+import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
- * Foreground service for continuous location tracking.
- * The service itself doesn't need LocationTracker injection - it's just a notification holder.
- * Actual tracking is handled by LocationTracker in the repository.
+ * Foreground service for continuous location tracking with reactive notifications.
+ * Uses LifecycleService to manage lifecycle-aware coroutines.
+ * Updates notification in real-time with duration and pause/resume actions.
  */
 @AndroidEntryPoint
-class TrackingForegroundService : Service() {
+class TrackingForegroundService : LifecycleService() {
 
     companion object {
-        private const val CHANNEL_ID = "tracking_service_channel"
-        private const val NOTIFICATION_ID = 1
+        const val ACTION_PAUSE_TRACKING = "action_pause_tracking"
+        const val ACTION_RESUME_TRACKING = "action_resume_tracking"
+        const val ACTION_START_SERVICE = "action_start_service"
 
         fun start(context: Context) {
-            val intent = Intent(context, TrackingForegroundService::class.java)
+            val intent = Intent(context, TrackingForegroundService::class.java).apply {
+                action = ACTION_START_SERVICE
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -34,55 +40,83 @@ class TrackingForegroundService : Service() {
             }
         }
 
+        fun pause(context: Context) {
+            val intent = Intent(context, TrackingForegroundService::class.java).apply {
+                action = ACTION_PAUSE_TRACKING
+            }
+            context.startService(intent)
+        }
+
+        fun resume(context: Context) {
+            val intent = Intent(context, TrackingForegroundService::class.java).apply {
+                action = ACTION_RESUME_TRACKING
+            }
+            context.startService(intent)
+        }
+
         fun stop(context: Context) {
-            val intent = Intent(context, TrackingForegroundService::class.java)
-            context.stopService(intent)
+            context.stopService(Intent(context, TrackingForegroundService::class.java))
         }
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-    }
+    @Inject
+    lateinit var activitySessionRepository: ActivitySessionRepository
+
+    @Inject
+    lateinit var timeTracker: TimeTracker
+
+    @Inject
+    lateinit var observeCurrentSessionUseCase: ObserveCurrentSessionUseCase
+
+    @Inject
+    lateinit var notificationHelper: TrackingNotificationHelper
+
+    private var notificationJob: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        super.onStartCommand(intent, flags, startId)
+        when (intent?.action) {
+            ACTION_PAUSE_TRACKING -> {
+                lifecycleScope.launch {
+                    activitySessionRepository.pauseSession()
+                }
+            }
+            ACTION_RESUME_TRACKING -> {
+                lifecycleScope.launch {
+                    activitySessionRepository.resumeSession()
+                }
+            }
+            ACTION_START_SERVICE -> {
+                startForeground(
+                    TrackingNotificationHelper.NOTIFICATION_ID,
+                    notificationHelper.getDefaultNotification()
+                )
+
+                // Subscribe to reactive updates for notification
+                if (notificationJob == null) {
+                    notificationJob = combine(
+                        timeTracker.durationInMillis,
+                        observeCurrentSessionUseCase(),
+                        activitySessionRepository.isPaused
+                    ) { duration, session, isPaused ->
+                        val isTracking = session != null && !isPaused
+                        notificationHelper.updateTrackingNotification(
+                            durationInMillis = duration,
+                            isTracking = isTracking
+                        )
+                    }.launchIn(lifecycleScope)
+                }
+            }
+        }
+
         return START_STICKY // Restart if killed by system
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Activity Tracking",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows notification while tracking activity"
-            }
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Tracking Activity")
-            .setContentText("GPS tracking is active")
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .build()
+    override fun onDestroy() {
+        super.onDestroy()
+        notificationHelper.removeTrackingNotification()
+        notificationJob?.cancel()
+        notificationJob = null
     }
 }
 
