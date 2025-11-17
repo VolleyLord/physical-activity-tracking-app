@@ -17,6 +17,7 @@ object ActivitySessionMapper {
         stats = ActivityStatsMapper.domainToDto(session.stats),
         status = when (session.status) {
             is ActivityStatus.Active -> "active"
+            is ActivityStatus.Paused -> "paused"
             is ActivityStatus.Completed -> "completed"
             is ActivityStatus.Aborted -> "aborted"
         }
@@ -25,6 +26,7 @@ object ActivitySessionMapper {
     fun dtoToDomain(id: String, dto: ActivitySessionDto): ActivitySession {
         val status = when (dto.status) {
             "active" -> ActivityStatus.Active
+            "paused" -> ActivityStatus.Paused
             "completed" -> ActivityStatus.Completed
             "aborted" -> ActivityStatus.Aborted(dto.status)
             else -> ActivityStatus.Active

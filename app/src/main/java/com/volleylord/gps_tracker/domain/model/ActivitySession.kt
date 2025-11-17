@@ -1,7 +1,5 @@
 package com.volleylord.gps_tracker.domain.model
 
-import kotlin.time.Duration
-
 data class ActivitySession(
     val id: String,
     val userId: String,
@@ -18,11 +16,8 @@ data class ActivitySession(
         require(
             endedAtEpochMillis == null || endedAtEpochMillis >= startedAtEpochMillis
         ) { "endedAtEpochMillis must be >= start when provided" }
-        // Allow empty route for newly created active sessions
-        // Route will be populated as tracking progresses
-        require(
-            route.isNotEmpty() || (status == ActivityStatus.Active && endedAtEpochMillis == null)
-        ) { "route cannot be empty for completed sessions" }
+        // Allow empty route for active/paused sessions and completed sessions
+        // Route may be empty if tracking was stopped immediately or no GPS signal
         if (status == ActivityStatus.Completed) {
             requireNotNull(endedAtEpochMillis) { "completed session must have end time" }
         }
@@ -31,6 +26,7 @@ data class ActivitySession(
 
 sealed interface ActivityStatus {
     data object Active : ActivityStatus
+    data object Paused : ActivityStatus
     data object Completed : ActivityStatus
     data class Aborted(val reason: String?) : ActivityStatus
 }
