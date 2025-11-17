@@ -1,6 +1,7 @@
 package com.volleylord.gps_tracker.domain.model
 
 import kotlin.time.Duration
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -23,18 +24,19 @@ class ActivitySessionTest {
         )
 
     @Test
-    fun `throws when route is empty`() {
-        assertThrows(IllegalArgumentException::class.java) {
-            ActivitySession(
-                id = "id",
-                userId = "user",
-                startedAtEpochMillis = 1L,
-                endedAtEpochMillis = null,
-                route = emptyList(),
-                stats = sampleStats(),
-                status = ActivityStatus.Active
-            )
-        }
+    fun `allows empty route for active sessions`() {
+        // Active sessions can start with empty route (will be populated as tracking progresses)
+        val session = ActivitySession(
+            id = "id",
+            userId = "user",
+            startedAtEpochMillis = 1L,
+            endedAtEpochMillis = null,
+            route = emptyList(),
+            stats = sampleStats(),
+            status = ActivityStatus.Active
+        )
+        // Should not throw - empty route is allowed for active sessions
+        assertNotNull(session)
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.volleylord.gps_tracker.domain.model.TrackingPoint
 import com.volleylord.gps_tracker.domain.repository.ActivitySessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -18,10 +19,13 @@ class FakeActivitySessionRepository : ActivitySessionRepository {
 
     private val activeSessionState = MutableStateFlow<ActivitySession?>(null)
     private val historyState = MutableStateFlow<List<ActivitySession>>(emptyList())
+    private val _isPaused = MutableStateFlow(false)
+    override val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
 
     override fun observeActiveSession(): Flow<ActivitySession?> = activeSessionState.asStateFlow()
 
     override suspend fun startNewSession(): ActivitySession {
+        _isPaused.value = false
         val session = ActivitySession(
             id = UUID.randomUUID().toString(),
             userId = "fake-user",
@@ -60,8 +64,25 @@ class FakeActivitySessionRepository : ActivitySessionRepository {
             status = ActivityStatus.Completed
         )
         activeSessionState.value = null
+        _isPaused.value = false
         historyState.update { listOf(completed) + it }
         return completed
+    }
+
+    override suspend fun pauseSession() {
+        val active = activeSessionState.value ?: return
+        _isPaused.value = true
+        activeSessionState.value = active.copy(
+            status = ActivityStatus.Paused
+        )
+    }
+
+    override suspend fun resumeSession() {
+        val active = activeSessionState.value ?: return
+        _isPaused.value = false
+        activeSessionState.value = active.copy(
+            status = ActivityStatus.Active
+        )
     }
 
     override suspend fun appendPoint(sessionId: String, point: TrackingPoint) {
