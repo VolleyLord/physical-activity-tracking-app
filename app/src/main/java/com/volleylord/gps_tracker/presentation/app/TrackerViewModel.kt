@@ -3,6 +3,8 @@ package com.volleylord.gps_tracker.presentation.app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
+import com.volleylord.gps_tracker.domain.usecase.PauseActivityTrackingUseCase
+import com.volleylord.gps_tracker.domain.usecase.ResumeActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.StartActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.StopActivityTrackingUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,7 @@ import javax.inject.Inject
 
 data class TrackerUiState(
     val isTracking: Boolean = false,
+    val isPaused: Boolean = false,
     val isLoading: Boolean = false,
     val distanceMeters: Double = 0.0,
     val stepCount: Long = 0L,
@@ -26,6 +29,8 @@ data class TrackerUiState(
 class TrackerViewModel @Inject constructor(
     private val startTrackingUseCase: StartActivityTrackingUseCase,
     private val stopTrackingUseCase: StopActivityTrackingUseCase,
+    private val pauseTrackingUseCase: PauseActivityTrackingUseCase,
+    private val resumeTrackingUseCase: ResumeActivityTrackingUseCase,
     private val observeCurrentSessionUseCase: ObserveCurrentSessionUseCase
 ) : ViewModel() {
 
@@ -51,8 +56,10 @@ class TrackerViewModel @Inject constructor(
                         currentSessionId = session.id
                         val minutes = session.stats.elapsed.inWholeMinutes
                         val seconds = (session.stats.elapsed.inWholeSeconds % 60)
+                        val isPaused = session.status is com.volleylord.gps_tracker.domain.model.ActivityStatus.Paused
                         _uiState.value = _uiState.value.copy(
                             isTracking = true,
+                            isPaused = isPaused,
                             distanceMeters = session.stats.distanceMeters,
                             stepCount = session.stats.stepCount,
                             elapsedTime = String.format("%02d:%02d", minutes, seconds)
@@ -60,6 +67,7 @@ class TrackerViewModel @Inject constructor(
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isTracking = false,
+                            isPaused = false,
                             distanceMeters = 0.0,
                             stepCount = 0L,
                             elapsedTime = "00:00"
@@ -83,6 +91,22 @@ class TrackerViewModel @Inject constructor(
                     )
                 }
             )
+        }
+    }
+
+    fun pauseTracking() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            pauseTrackingUseCase()
+            _uiState.value = _uiState.value.copy(isLoading = false)
+        }
+    }
+
+    fun resumeTracking() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            resumeTrackingUseCase()
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
