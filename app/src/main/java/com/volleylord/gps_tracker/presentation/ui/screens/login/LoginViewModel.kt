@@ -1,4 +1,4 @@
-package com.volleylord.gps_tracker.presentation.ui.login
+package com.volleylord.gps_tracker.presentation.ui.screens.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

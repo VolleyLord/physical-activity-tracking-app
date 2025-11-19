@@ -1,7 +1,8 @@
-package com.volleylord.gps_tracker.presentation.app
+package com.volleylord.gps_tracker.presentation.ui.screens.tracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.volleylord.gps_tracker.domain.model.ActivityStatus
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
 import com.volleylord.gps_tracker.domain.usecase.PauseActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.ResumeActivityTrackingUseCase
@@ -56,7 +57,7 @@ class TrackerViewModel @Inject constructor(
                         currentSessionId = session.id
                         val minutes = session.stats.elapsed.inWholeMinutes
                         val seconds = (session.stats.elapsed.inWholeSeconds % 60)
-                        val isPaused = session.status is com.volleylord.gps_tracker.domain.model.ActivityStatus.Paused
+                        val isPaused = session.status is ActivityStatus.Paused
                         _uiState.value = _uiState.value.copy(
                             isTracking = true,
                             isPaused = isPaused,
@@ -95,6 +96,7 @@ class TrackerViewModel @Inject constructor(
     }
 
     fun pauseTracking() {
+        if (!_uiState.value.isTracking || _uiState.value.isPaused) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             pauseTrackingUseCase()
@@ -103,6 +105,7 @@ class TrackerViewModel @Inject constructor(
     }
 
     fun resumeTracking() {
+        if (!_uiState.value.isTracking || !_uiState.value.isPaused) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             resumeTrackingUseCase()
@@ -129,3 +132,4 @@ class TrackerViewModel @Inject constructor(
         }
     }
 }
+
