@@ -4,226 +4,210 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.volleylord.gps_tracker.presentation.ui.login.LoginScreen
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.volleylord.gps_tracker.presentation.navigation.AppDestination
+import com.volleylord.gps_tracker.presentation.navigation.NavigationCommand
+import com.volleylord.gps_tracker.presentation.navigation.NavigationManager
+import com.volleylord.gps_tracker.presentation.ui.screens.dashboard.DashboardRoute
+import com.volleylord.gps_tracker.presentation.ui.screens.history.HistoryRoute
+import com.volleylord.gps_tracker.presentation.ui.screens.login.LoginScreen
+import com.volleylord.gps_tracker.presentation.ui.screens.tracker.TrackerRoute
 import com.volleylord.gps_tracker.presentation.ui.theme.GpsTrackerTheme
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun GpsTrackerApp() {
-    GpsTrackerTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val currentUser by authViewModel.observeAuthStateUseCase().collectAsState(initial = null)
-            
-            if (currentUser == null) {
-                // Show login screen when not authenticated
-                LoginScreen(
-                    onLoginSuccess = {
-                        // Login success is handled by auth state flow
-                        // The screen will automatically switch when user becomes authenticated
-                    }
-                )
-            } else {
-                // Show tracker screen when authenticated
-                TrackerScreen()
+fun GpsTrackerApp(
+    navigationManager: NavigationManager
+) {
+    val navController = rememberNavController()
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val currentUser by authViewModel.observeAuthStateUseCase().collectAsState(initial = null)
+    val isAuthenticated = currentUser != null
+
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
+    val context = LocalContext.current
+
+    var hasNotificationPermission by rememberSaveable {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var showNotificationPermissionDialog by rememberSaveable { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasNotificationPermission = granted
+    }
+
+    LaunchedEffect(navigationManager, navController) {
+        navigationManager.commands.collectLatest { command ->
+            when (command) {
+                is NavigationCommand.NavigateTo -> {
+                    navController.navigate(command.route, command.builder)
+                }
+                NavigationCommand.NavigateUp -> navController.navigateUp()
             }
+        }
+    }
+
+    LaunchedEffect(isAuthenticated) {
+        if (!isAuthenticated) {
+            navController.navigate(AppDestination.Login.route) {
+                popUpTo(AppDestination.Login.route) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+            }
+        } else {
+            navController.navigate(AppDestination.Dashboard.route) {
+                popUpTo(AppDestination.Login.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    LaunchedEffect(isAuthenticated, currentRoute) {
+        if (isAuthenticated && (currentRoute == null || currentRoute == AppDestination.Login.route)) {
+            navController.navigate(AppDestination.Dashboard.route) {
+                popUpTo(AppDestination.Login.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    LaunchedEffect(isAuthenticated) {
+        if (
+            isAuthenticated &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !hasNotificationPermission
+        ) {
+            showNotificationPermissionDialog = true
+        }
+    }
+
+    GpsTrackerTheme {
+        Surface {
+            Scaffold(
+                bottomBar = {
+                    if (isAuthenticated) {
+                        TrackerBottomBar(
+                            currentRoute = currentRoute,
+                            onDestinationSelected = { destination ->
+                                navigationManager.navigateTo(destination.route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                }
+            ) { padding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = AppDestination.Login.route,
+                    modifier = Modifier.padding(padding)
+                ) {
+                    composable(AppDestination.Login.route) {
+                        LoginScreen(
+                            onLoginSuccess = {
+                                navigationManager.navigateTo(AppDestination.Dashboard.route) {
+                                    popUpTo(AppDestination.Login.route) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                    composable(AppDestination.Dashboard.route) {
+                        DashboardRoute(
+                            onNavigateToHistory = {
+                                navigationManager.navigateTo(AppDestination.History.route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                    composable(AppDestination.Tracker.route) {
+                        TrackerRoute()
+                    }
+                    composable(AppDestination.History.route) {
+                        HistoryRoute()
+                    }
+                }
+            }
+        }
+
+        if (showNotificationPermissionDialog) {
+            AlertDialog(
+                onDismissRequest = { showNotificationPermissionDialog = false },
+                title = { Text("Enable notifications") },
+                text = {
+                    Text("Allow notifications so we can keep you informed when tracking runs in the background.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showNotificationPermissionDialog = false
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    ) {
+                        Text("Allow")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNotificationPermissionDialog = false }) {
+                        Text("Not now")
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
-fun TrackerScreen(
-    viewModel: TrackerViewModel = hiltViewModel()
+private fun TrackerBottomBar(
+    currentRoute: String?,
+    onDestinationSelected: (AppDestination) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    
-    // Permission state
-    var hasLocationPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        )
-    }
-    
-    var hasActivityRecognitionPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACTIVITY_RECOGNITION
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        )
-    }
-    
-    var hasNotificationPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        )
-    }
-    
-    // Permission launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            hasActivityRecognitionPermission = 
-                permissions[Manifest.permission.ACTIVITY_RECOGNITION] ?: false
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            hasNotificationPermission = 
-                permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
-        }
-    }
-    
-    // Request permissions when needed
-    LaunchedEffect(Unit) {
-        val permissionsToRequest = mutableListOf<String>()
-        
-        if (!hasLocationPermission) {
-            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasActivityRecognitionPermission) {
-            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        
-        if (permissionsToRequest.isNotEmpty()) {
-            permissionLauncher.launch(permissionsToRequest.toTypedArray())
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Activity Tracker",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (!hasLocationPermission) {
-            Text(
-                "Location permission required",
-                color = MaterialTheme.colorScheme.error
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Please grant location permission in settings",
-                style = MaterialTheme.typography.bodySmall
-            )
-        } else if (uiState.isTracking) {
-            Text("Distance: ${String.format("%.2f", uiState.distanceMeters)}m")
-            Text("Steps: ${uiState.stepCount}")
-            Text("Time: ${uiState.elapsedTime}")
-        } else {
-            Text("Not tracking")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (uiState.isTracking) {
-            // Show pause/resume and finish buttons when tracking
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        if (uiState.isPaused) {
-                            viewModel.resumeTracking()
-                        } else {
-                            viewModel.pauseTracking()
-                        }
-                    },
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    } else {
-                        Text(if (uiState.isPaused) "Resume" else "Pause")
-                    }
-                }
-                Button(
-                    onClick = {
-                        viewModel.stopTracking()
-                    },
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    } else {
-                        Text("Finish")
-                    }
-                }
-            }
-        } else {
-            // Show start button when not tracking
-            Button(
-                onClick = {
-                    if (hasLocationPermission) {
-                        viewModel.startTracking()
-                    } else {
-                        // Request permissions again if denied
-                        val permissionsToRequest = mutableListOf<String>()
-                        if (!hasLocationPermission) {
-                            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasActivityRecognitionPermission) {
-                            permissionsToRequest.add(Manifest.permission.ACTIVITY_RECOGNITION)
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-                            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        if (permissionsToRequest.isNotEmpty()) {
-                            permissionLauncher.launch(permissionsToRequest.toTypedArray())
-                        }
-                    }
+    NavigationBar {
+        AppDestination.bottomBarDestinations.forEach { destination ->
+            NavigationBarItem(
+                selected = destination.route == currentRoute,
+                onClick = { onDestinationSelected(destination) },
+                icon = {
+                    androidx.compose.material3.Icon(
+                        imageVector = requireNotNull(destination.icon),
+                        contentDescription = destination.label
+                    )
                 },
-                enabled = !uiState.isLoading && hasLocationPermission
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                } else {
-                    Text("Start")
-                }
-            }
-        }
-
-        uiState.errorMessage?.let { error ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(error, color = MaterialTheme.colorScheme.error)
+                label = { Text(destination.label) }
+            )
         }
     }
 }
