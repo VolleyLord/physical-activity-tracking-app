@@ -1,12 +1,18 @@
 package com.volleylord.gps_tracker.presentation.ui.screens.history
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.volleylord.gps_tracker.domain.model.ActivitySession
@@ -24,18 +31,25 @@ import com.volleylord.gps_tracker.domain.model.ActivityStats
 import com.volleylord.gps_tracker.domain.model.ActivityStatus
 import com.volleylord.gps_tracker.domain.model.TrackingPoint
 import com.volleylord.gps_tracker.presentation.ui.theme.GpsTrackerTheme
+import com.volleylord.gps_tracker.presentation.util.formatSessionDateTime
 import kotlin.time.Duration.Companion.minutes
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun HistoryRoute(
-    viewModel: HistoryViewModel = hiltViewModel()
+    viewModel: HistoryViewModel = hiltViewModel(),
+    onSessionSelected: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    HistoryScreen(uiState = uiState)
+    HistoryScreen(uiState = uiState, onSessionSelected = onSessionSelected)
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun HistoryScreen(uiState: HistoryUiState) {
+fun HistoryScreen(
+    uiState: HistoryUiState,
+    onSessionSelected: (String) -> Unit
+) {
     Surface(modifier = Modifier.fillMaxSize()) {
         when {
             uiState.isLoading -> {
@@ -63,11 +77,14 @@ fun HistoryScreen(uiState: HistoryUiState) {
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(uiState.sessions) { session ->
-                        HistoryItem(session = session)
+                        HistoryItem(
+                            session = session,
+                            onClick = { onSessionSelected(session.id) }
+                        )
                     }
                 }
             }
@@ -75,12 +92,19 @@ fun HistoryScreen(uiState: HistoryUiState) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun HistoryItem(session: ActivitySession) {
+private fun HistoryItem(
+    session: ActivitySession,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(12.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
     ) {
         val minutes = session.stats.elapsed.inWholeMinutes
         val seconds = session.stats.elapsed.inWholeSeconds % 60
@@ -89,11 +113,16 @@ private fun HistoryItem(session: ActivitySession) {
             style = MaterialTheme.typography.titleMedium
         )
         Text(
+            text = "Started: ${formatSessionDateTime(session.startedAtEpochMillis)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
             text = "Duration: ${minutes}m ${seconds}s",
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
-            text = "Distance: ${String.format("%.2f m", session.stats.distanceMeters)}",
+            text = "Distance: ${String.format("%.2f km", session.stats.distanceMeters / 1000.0)}",
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
@@ -104,6 +133,7 @@ private fun HistoryItem(session: ActivitySession) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Preview(showBackground = true)
 @Composable
 private fun HistoryScreenPreview() {
@@ -127,7 +157,8 @@ private fun HistoryScreenPreview() {
             uiState = HistoryUiState(
                 isLoading = false,
                 sessions = listOf(sample)
-            )
+            ),
+            onSessionSelected = {}
         )
     }
 }

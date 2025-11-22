@@ -15,6 +15,7 @@ sealed class AppDestination(
     data object Dashboard : AppDestination("dashboard", "Main", Icons.Outlined.Home)
     data object Tracker : AppDestination("tracker", "Tracker", Icons.Outlined.Map)
     data object History : AppDestination("history", "History", Icons.Outlined.History)
+    data object HistoryDetail : AppDestination("historyDetail/{sessionId}", "History Detail", null)
 
     companion object {
         val bottomBarDestinations = listOf(Dashboard, Tracker, History)

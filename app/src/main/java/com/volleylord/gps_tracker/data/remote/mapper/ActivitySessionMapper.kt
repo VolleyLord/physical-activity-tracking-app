@@ -20,7 +20,8 @@ object ActivitySessionMapper {
             is ActivityStatus.Paused -> "paused"
             is ActivityStatus.Completed -> "completed"
             is ActivityStatus.Aborted -> "aborted"
-        }
+        },
+        notes = session.notes
     )
 
     fun dtoToDomain(id: String, dto: ActivitySessionDto): ActivitySession {
@@ -39,7 +40,8 @@ object ActivitySessionMapper {
             endedAtEpochMillis = dto.endedAtEpochMillis,
             route = dto.route.map { TrackingPointMapper.dtoToDomain(it) },
             stats = ActivityStatsMapper.dtoToDomain(dto.stats),
-            status = status
+            status = status,
+            notes = dto.notes
         )
     }
 }

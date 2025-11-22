@@ -29,6 +29,10 @@ data class ActivitySessionDto(
 
     @get:PropertyName("status")
     @set:PropertyName("status")
-    var status: String = "active" // "active", "completed", "aborted"
+    var status: String = "active", // "active", "completed", "aborted"
+
+    @get:PropertyName("notes")
+    @set:PropertyName("notes")
+    var notes: String? = null
 )
 

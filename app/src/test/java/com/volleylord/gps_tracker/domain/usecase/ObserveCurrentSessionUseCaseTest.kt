@@ -73,14 +73,16 @@ class ObserveCurrentSessionUseCaseTest {
                 longitude = 30.2660463,
                 altitudeMeters = 195.5,
                 timestampEpochMillis = System.currentTimeMillis(),
-                elapsedTime = 1000.milliseconds
+                elapsedTime = 1000.milliseconds,
+                speedMps = 1.5
             )
             val point2 = TrackingPoint(
                 latitude = 55.2025000,
                 longitude = 30.2661000,
                 altitudeMeters = 195.6,
                 timestampEpochMillis = System.currentTimeMillis() + 2000,
-                elapsedTime = 3000.milliseconds
+                elapsedTime = 3000.milliseconds,
+                speedMps = 1.6
             )
 
             // Add first point and wait for emission

@@ -37,7 +37,8 @@ class FakeActivitySessionRepository : ActivitySessionRepository {
                     longitude = -122.0840575,
                     altitudeMeters = 5.0,
                     timestampEpochMillis = System.currentTimeMillis(),
-                    elapsedTime = Duration.Companion.ZERO
+                    elapsedTime = Duration.Companion.ZERO,
+                    speedMps = null
                 )
             ),
             stats = ActivityStats(
@@ -96,4 +97,35 @@ class FakeActivitySessionRepository : ActivitySessionRepository {
     override fun observeHistory(limit: Int): Flow<List<ActivitySession>> =
         historyState.asStateFlow()
             .map { sessions -> sessions.take(limit) }
+
+    override fun observeSession(sessionId: String): Flow<ActivitySession?> =
+        historyState.asStateFlow()
+            .map { sessions -> sessions.find { it.id == sessionId } }
+            .let { flow ->
+                // Also check active session
+                kotlinx.coroutines.flow.combine(
+                    activeSessionState.asStateFlow(),
+                    flow
+                ) { active, fromHistory ->
+                    when {
+                        active?.id == sessionId -> active
+                        else -> fromHistory
+                    }
+                }
+            }
+
+    override suspend fun updateSessionNotes(sessionId: String, notes: String) {
+        // Update in history if exists
+        val fromHistory = historyState.value.find { it.id == sessionId }
+        if (fromHistory != null) {
+            historyState.update { sessions ->
+                sessions.map { if (it.id == sessionId) it.copy(notes = notes) else it }
+            }
+        }
+        // Update active session if it matches
+        val active = activeSessionState.value
+        if (active?.id == sessionId) {
+            activeSessionState.value = active.copy(notes = notes)
+        }
+    }
 }
