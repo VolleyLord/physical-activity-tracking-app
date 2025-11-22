@@ -1,5 +1,7 @@
 package com.volleylord.gps_tracker.presentation.ui.screens.dashboard
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,8 +38,10 @@ import com.volleylord.gps_tracker.presentation.ui.components.TrackingPermissionD
 import com.volleylord.gps_tracker.presentation.ui.permissions.TrackingPermissionState
 import com.volleylord.gps_tracker.presentation.ui.permissions.rememberTrackingPermissionState
 import com.volleylord.gps_tracker.presentation.ui.theme.GpsTrackerTheme
+import com.volleylord.gps_tracker.presentation.util.formatSessionDateTime
 import kotlin.time.Duration.Companion.minutes
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -54,7 +59,8 @@ fun DashboardRoute(
         onResumeWorkout = viewModel::onResumeClicked,
         onStopWorkout = viewModel::onStopClicked,
         onShowPermissionDialog = { showPermissionDialog = true },
-        onNavigateToHistory = onNavigateToHistory
+        onNavigateToHistory = onNavigateToHistory,
+        onLogout = viewModel::onLogoutClicked
     )
 
     TrackingPermissionDialog(
@@ -70,6 +76,7 @@ fun DashboardRoute(
     )
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DashboardScreen(
     uiState: DashboardUiState,
@@ -79,7 +86,8 @@ fun DashboardScreen(
     onResumeWorkout: () -> Unit,
     onStopWorkout: () -> Unit,
     onShowPermissionDialog: () -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    onLogout: () -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -88,10 +96,22 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Dashboard",
-                style = MaterialTheme.typography.headlineMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Dashboard",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                TextButton(
+                    onClick = onLogout,
+                    enabled = !uiState.isLoading && !uiState.isActionInProgress
+                ) {
+                    Text("Logout")
+                }
+            }
 
             ActiveSessionCard(
                 uiState = uiState,
@@ -118,6 +138,7 @@ fun DashboardScreen(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun ActiveSessionCard(
     uiState: DashboardUiState,
@@ -192,6 +213,7 @@ private fun ActiveSessionCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun ActiveSessionStats(session: ActivitySession) {
     Column(
@@ -201,7 +223,12 @@ private fun ActiveSessionStats(session: ActivitySession) {
             .padding(12.dp)
     ) {
         Text(
-            text = "Distance: ${String.format("%.2f m", session.stats.distanceMeters)}",
+            text = "Started: ${formatSessionDateTime(session.startedAtEpochMillis)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Distance: ${String.format("%.2f km", session.stats.distanceMeters / 1000.0)}",
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
@@ -215,6 +242,7 @@ private fun ActiveSessionStats(session: ActivitySession) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun HistoryPreviewCard(
     sessions: List<ActivitySession>,
@@ -263,6 +291,7 @@ private fun HistoryPreviewCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun HistoryRow(session: ActivitySession) {
     Row(
@@ -273,6 +302,11 @@ private fun HistoryRow(session: ActivitySession) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
+            Text(
+                text = formatSessionDateTime(session.startedAtEpochMillis),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             val minutes = session.stats.elapsed.inWholeMinutes
             val seconds = session.stats.elapsed.inWholeSeconds % 60
             Text(
@@ -280,7 +314,7 @@ private fun HistoryRow(session: ActivitySession) {
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = String.format("%.2f m", session.stats.distanceMeters),
+                text = String.format("%.2f km", session.stats.distanceMeters / 1000.0),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -291,6 +325,7 @@ private fun HistoryRow(session: ActivitySession) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Preview(showBackground = true)
 @Composable
 private fun DashboardScreenPreview() {
@@ -330,7 +365,8 @@ private fun DashboardScreenPreview() {
             onResumeWorkout = {},
             onStopWorkout = {},
             onShowPermissionDialog = {},
-            onNavigateToHistory = {}
+            onNavigateToHistory = {},
+            onLogout = {}
         )
     }
 }

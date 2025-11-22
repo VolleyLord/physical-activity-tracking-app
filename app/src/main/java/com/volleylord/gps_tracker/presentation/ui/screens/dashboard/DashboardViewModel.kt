@@ -7,6 +7,7 @@ import com.volleylord.gps_tracker.domain.usecase.ObserveActivityHistoryUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
 import com.volleylord.gps_tracker.domain.usecase.PauseActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.ResumeActivityTrackingUseCase
+import com.volleylord.gps_tracker.domain.usecase.SignOutUseCase
 import com.volleylord.gps_tracker.domain.usecase.StartActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.StopActivityTrackingUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,8 @@ class DashboardViewModel @Inject constructor(
     private val startActivityTrackingUseCase: StartActivityTrackingUseCase,
     private val stopActivityTrackingUseCase: StopActivityTrackingUseCase,
     private val pauseActivityTrackingUseCase: PauseActivityTrackingUseCase,
-    private val resumeActivityTrackingUseCase: ResumeActivityTrackingUseCase
+    private val resumeActivityTrackingUseCase: ResumeActivityTrackingUseCase,
+    private val signOutUseCase: SignOutUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -128,6 +130,19 @@ class DashboardViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         errorMessage = error.message ?: "Failed to resume tracking"
+                    )
+                }
+            _uiState.value = _uiState.value.copy(isActionInProgress = false)
+        }
+    }
+
+    fun onLogoutClicked() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isActionInProgress = true, errorMessage = null)
+            runCatching { signOutUseCase() }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = error.message ?: "Failed to logout"
                     )
                 }
             _uiState.value = _uiState.value.copy(isActionInProgress = false)
