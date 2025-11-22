@@ -25,6 +25,10 @@ data class TrackingPointDto(
 
     @get:PropertyName("elapsed_time_millis")
     @set:PropertyName("elapsed_time_millis")
-    var elapsedTimeMillis: Long = 0L
+    var elapsedTimeMillis: Long = 0L,
+
+    @get:PropertyName("speed_mps")
+    @set:PropertyName("speed_mps")
+    var speedMps: Double? = null
 )
 

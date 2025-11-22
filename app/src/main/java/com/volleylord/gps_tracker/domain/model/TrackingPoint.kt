@@ -7,6 +7,7 @@ data class TrackingPoint(
     val longitude: Double,
     val altitudeMeters: Double?,
     val timestampEpochMillis: Long,
-    val elapsedTime: Duration
+    val elapsedTime: Duration,
+    val speedMps: Double? = null
 )
 

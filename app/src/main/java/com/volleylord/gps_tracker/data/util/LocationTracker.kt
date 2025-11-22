@@ -33,7 +33,9 @@ import javax.inject.Singleton
 /**
  * Tracks GPS location and step count.
  * Combines FusedLocationProvider for GPS and SensorManager for step detection.
+ * Automatically disables step counting during cycling based on speed detection.
  */
+
 @Singleton
 class LocationTracker @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -46,10 +48,14 @@ class LocationTracker @Inject constructor(
     private var stepSensor: Sensor? = null
     private var locationCallback: LocationCallback? = null
 
+    // Simple speed threshold for cycling detection
+    private val CYCLING_SPEED_THRESHOLD = 2.5f // ~9 km/h
+
     private val stepEventListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
             if (event?.sensor?.type == Sensor.TYPE_STEP_DETECTOR) {
                 _stepCount.update { it + 1 }
+                Log.d("LocationTracker", "Step detected, total: ${_stepCount.value}")
             }
         }
 
@@ -62,7 +68,6 @@ class LocationTracker @Inject constructor(
      * Starts tracking location and steps.
      * Returns a Flow of TrackingPoints.
      */
-
     fun startTracking(sessionStartTime: Long): Flow<TrackingPoint> = callbackFlow {
 
         // Check location permissions before starting
@@ -83,15 +88,26 @@ class LocationTracker @Inject constructor(
             override fun onLocationResult(result: LocationResult) {
                 val location = result.lastLocation ?: return
                 val currentTime = System.currentTimeMillis()
-                
+
+                // Simple speed-based step counting control
+                if (location.speed > CYCLING_SPEED_THRESHOLD) {
+                    // Cycling detected - disable step counting
+                    sensorManager.unregisterListener(stepEventListener)
+                    Log.d("LocationTracker", "Step counting disabled - Cycling (speed: ${location.speed}m/s)")
+                } else {
+                    // Walking or stationary - ensure step counting is enabled
+                    enableStepCounting()
+                }
+
                 val elapsed = (currentTime - sessionStartTime).milliseconds
-                
+
                 val point = TrackingPoint(
                     latitude = location.latitude,
                     longitude = location.longitude,
                     altitudeMeters = if (location.hasAltitude()) location.altitude else null,
                     timestampEpochMillis = currentTime,
-                    elapsedTime = elapsed
+                    elapsedTime = elapsed,
+                    speedMps = location.speed.toDouble()
                 )
 
                 previousLocation = location
@@ -104,8 +120,6 @@ class LocationTracker @Inject constructor(
                     Log.w("LocationTracker", "Location services became unavailable")
                 }
             }
-
-
         }
 
         // Start location updates
@@ -118,32 +132,38 @@ class LocationTracker @Inject constructor(
 
             Log.d("LocationTracker", "Location updates started successfully")
         } catch (securityException: SecurityException) {
-            // Handle permission-related security exception
             Log.e("Location", "SecurityException: Location permission missing", securityException)
+            close(securityException)
+            return@callbackFlow
         }
 
         // Start step detection
-        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-        stepSensor?.let {
-            val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
-            if (registered) {
-                Log.d("LocationTracker", "Step detector sensor registered successfully")
-            } else {
-                Log.w("LocationTracker", "Failed to register step detector sensor")
-            }
-        } ?: run {
-            Log.w("LocationTracker", "Step detector sensor not available on this device")
-        }
+        enableStepCounting()
 
         awaitClose {
-            locationCallback?.let {
-                fusedLocationClient.removeLocationUpdates(it)
-            }
-            sensorManager.unregisterListener(stepEventListener)
-            locationCallback = null
+            stopTracking()
         }
     }
 
+    /**
+     * Enable step counting (registers listener if not already registered)
+     */
+    private fun enableStepCounting() {
+        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+        stepSensor?.let {
+            try {
+                sensorManager.unregisterListener(stepEventListener) // Unregister first to avoid duplicates
+                val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
+                if (registered) {
+                    Log.d("LocationTracker", "Step counting enabled")
+                }
+            } catch (e: Exception) {
+                Log.w("LocationTracker", "Error enabling step counting", e)
+            }
+        } ?: run {
+            Log.w("LocationTracker", "Step detector sensor not available")
+        }
+    }
 
     /**
      * Check if location permissions are granted
@@ -159,60 +179,24 @@ class LocationTracker @Inject constructor(
                 ) == PackageManager.PERMISSION_GRANTED
     }
 
-
     /**
      * Pauses only step tracking (location continues).
-     * Used when session is paused but location tracking should continue.
      */
     fun pauseStepTracking() {
         sensorManager.unregisterListener(stepEventListener)
-        // Do NOT reset step count - preserve it for resume
-        // Location tracking continues via locationCallback
+        Log.d("LocationTracker", "Step tracking paused")
     }
 
     /**
      * Resumes step tracking.
-     * Location tracking should already be active.
      */
     fun resumeStepTracking() {
-        stepSensor?.let {
-            val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
-            if (registered) {
-                Log.d("LocationTracker", "Step detector sensor resumed successfully")
-            } else {
-                Log.w("LocationTracker", "Failed to resume step detector sensor")
-            }
-        } ?: run {
-            // Re-initialize step sensor if needed
-            stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-            stepSensor?.let {
-                val registered = sensorManager.registerListener(stepEventListener, it, SensorManager.SENSOR_DELAY_UI)
-                if (registered) {
-                    Log.d("LocationTracker", "Step detector sensor re-initialized and registered")
-                } else {
-                    Log.w("LocationTracker", "Failed to register re-initialized step detector sensor")
-                }
-            } ?: Log.w("LocationTracker", "Step detector sensor not available on this device")
-        }
-    }
-
-    /**
-     * Pauses tracking location and steps without resetting step count.
-     * Can be resumed later without losing accumulated data.
-     * @deprecated Use pauseStepTracking() for pause functionality
-     */
-    fun pauseTracking() {
-        locationCallback?.let {
-            fusedLocationClient.removeLocationUpdates(it)
-        }
-        sensorManager.unregisterListener(stepEventListener)
-        // Do NOT reset step count - preserve it for resume
-        // Do NOT set locationCallback to null - need it for resume
+        enableStepCounting()
+        Log.d("LocationTracker", "Step tracking resumed")
     }
 
     /**
      * Stops tracking location and steps completely.
-     * Resets all state including step count.
      */
     fun stopTracking() {
         locationCallback?.let {
@@ -221,6 +205,7 @@ class LocationTracker @Inject constructor(
         sensorManager.unregisterListener(stepEventListener)
         locationCallback = null
         _stepCount.value = 0L
+        Log.d("LocationTracker", "Tracking completely stopped")
     }
 
     /**
@@ -228,6 +213,6 @@ class LocationTracker @Inject constructor(
      */
     fun resetStepCount() {
         _stepCount.value = 0L
+        Log.d("LocationTracker", "Step count reset to zero")
     }
 }
-
