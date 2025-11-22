@@ -2,6 +2,7 @@ package com.volleylord.gps_tracker.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import com.volleylord.gps_tracker.domain.model.User
 import com.volleylord.gps_tracker.domain.repository.AuthRepository
 import kotlinx.coroutines.channels.awaitClose
@@ -38,6 +39,29 @@ class FirebaseAuthRepositoryImpl @Inject constructor(
             val result = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = result.user?.toDomainUser()
                 ?: return Result.failure(Exception("Sign in succeeded but user is null"))
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun signInWithGoogle(idToken: String): Result<User> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val result = firebaseAuth.signInWithCredential(credential).await()
+            val user = result.user?.toDomainUser()
+                ?: return Result.failure(Exception("Google sign in succeeded but user is null"))
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun signUpWithEmail(email: String, password: String): Result<User> {
+        return try {
+            val result = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+            val user = result.user?.toDomainUser()
+                ?: return Result.failure(Exception("Sign up succeeded but user is null"))
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)

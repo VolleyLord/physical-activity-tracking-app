@@ -24,6 +24,19 @@ class FakeAuthRepository(
         return Result.success(signedInUser)
     }
 
+    override suspend fun signUpWithEmail(email: String, password: String): Result<User> =
+        signInWithEmail(email, password)
+
+    override suspend fun signInWithGoogle(idToken: String): Result<User> {
+        val signedInUser = User(
+            uid = "google-$idToken",
+            email = "google-user@example.com",
+            displayName = "Google User"
+        )
+        userState.value = signedInUser
+        return Result.success(signedInUser)
+    }
+
     override suspend fun signOut() {
         userState.value = null
     }
