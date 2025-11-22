@@ -50,6 +50,7 @@ class ActivitySessionRepositoryImpl @Inject constructor(
     private val sessionStartTime = MutableStateFlow<Long?>(null)
     private val _isPaused = MutableStateFlow(false)
     override val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
+    private val _currentNotes = MutableStateFlow<String?>(null)
     private var locationTrackingJob: kotlinx.coroutines.Job? = null
 
     override fun observeActiveSession(): Flow<ActivitySession?> {
@@ -87,7 +88,8 @@ class ActivitySessionRepositoryImpl @Inject constructor(
                     stepCount = stepCount,
                     elapsed = elapsed
                 ),
-                status = if (isPaused) ActivityStatus.Paused else ActivityStatus.Active
+                status = if (isPaused) ActivityStatus.Paused else ActivityStatus.Active,
+                notes = _currentNotes.value
             )
         }
     }
@@ -101,6 +103,7 @@ class ActivitySessionRepositoryImpl @Inject constructor(
         locationTracker.resetStepCount()
         _isPaused.value = false
         timeTracker.reset()
+        _currentNotes.value = null
 
         // Create initial session data - we'll create the domain object after getting Firestore ID
         // First, create the session in Firestore to get the ID
@@ -176,7 +179,8 @@ class ActivitySessionRepositoryImpl @Inject constructor(
                 stepCount = stepCount,
                 elapsed = elapsed
             ),
-            status = ActivityStatus.Completed
+            status = ActivityStatus.Completed,
+            notes = _currentNotes.value
         )
 
         firestoreDataSource.updateSession(sessionId, completedSession)
@@ -185,6 +189,7 @@ class ActivitySessionRepositoryImpl @Inject constructor(
         _route.value = emptyList()
         sessionStartTime.value = null
         _isPaused.value = false
+        _currentNotes.value = null
 
         return completedSession
     }
@@ -256,10 +261,22 @@ class ActivitySessionRepositoryImpl @Inject constructor(
                 stepCount = stepCount, // This should be the current step count from LocationTracker
                 elapsed = safeElapsed
             ),
-            status = if (_isPaused.value) ActivityStatus.Paused else ActivityStatus.Active
+            status = if (_isPaused.value) ActivityStatus.Paused else ActivityStatus.Active,
+            notes = _currentNotes.value
         )
 
         firestoreDataSource.updateSession(sessionId, session)
+    }
+
+    override fun observeSession(sessionId: String): Flow<ActivitySession?> {
+        return firestoreDataSource.observeSessionById(sessionId)
+    }
+
+    override suspend fun updateSessionNotes(sessionId: String, notes: String) {
+        firestoreDataSource.updateSessionNotes(sessionId, notes)
+        if (_activeSessionId.value == sessionId) {
+            _currentNotes.value = notes
+        }
     }
 }
 

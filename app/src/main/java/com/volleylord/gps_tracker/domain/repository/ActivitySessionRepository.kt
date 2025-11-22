@@ -13,6 +13,8 @@ interface ActivitySessionRepository {
     suspend fun resumeSession()
     suspend fun appendPoint(sessionId: String, point: TrackingPoint): Unit
     fun observeHistory(limit: Int): Flow<List<ActivitySession>>
+    fun observeSession(sessionId: String): Flow<ActivitySession?>
+    suspend fun updateSessionNotes(sessionId: String, notes: String)
     val isPaused: StateFlow<Boolean>
 }
 

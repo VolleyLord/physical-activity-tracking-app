@@ -3,6 +3,7 @@ package com.volleylord.gps_tracker.di
 import com.volleylord.gps_tracker.domain.usecase.ObserveActivityHistoryUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveAuthStateUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
+import com.volleylord.gps_tracker.domain.usecase.ObserveSessionDetailsUseCase
 import com.volleylord.gps_tracker.domain.usecase.PauseActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.ResumeActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.SignInUseCase
@@ -11,11 +12,14 @@ import com.volleylord.gps_tracker.domain.usecase.SignOutUseCase
 import com.volleylord.gps_tracker.domain.usecase.SignUpUseCase
 import com.volleylord.gps_tracker.domain.usecase.StartActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.StopActivityTrackingUseCase
+import com.volleylord.gps_tracker.domain.usecase.UpdateSessionNotesUseCase
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveActivityHistoryUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveAuthStateUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveCurrentSessionUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.PauseActivityTrackingUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ResumeActivityTrackingUseCaseImpl
+import com.volleylord.gps_tracker.domain.usecase.impl.UpdateSessionNotesUseCaseImpl
+import com.volleylord.gps_tracker.domain.usecase.impl.ObserveSessionDetailsUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.SignInUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.SignInWithGoogleUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.SignOutUseCaseImpl
@@ -85,5 +89,15 @@ interface UseCaseModule {
     fun bindResumeActivityTrackingUseCase(
         impl: ResumeActivityTrackingUseCaseImpl
     ): ResumeActivityTrackingUseCase
+
+    @Binds
+    fun bindObserveSessionDetailsUseCase(
+        impl: ObserveSessionDetailsUseCaseImpl
+    ): ObserveSessionDetailsUseCase
+
+    @Binds
+    fun bindUpdateSessionNotesUseCase(
+        impl: UpdateSessionNotesUseCaseImpl
+    ): UpdateSessionNotesUseCase
 }
 

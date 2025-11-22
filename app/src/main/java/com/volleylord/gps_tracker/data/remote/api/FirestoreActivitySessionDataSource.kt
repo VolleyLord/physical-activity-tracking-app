@@ -88,5 +88,26 @@ class FirestoreActivitySessionDataSource @Inject constructor(
 
         awaitClose { listener.remove() }
     }
+
+    fun observeSessionById(sessionId: String): Flow<ActivitySession?> = callbackFlow {
+        val listener = sessionsCollection.document(sessionId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val dto = snapshot?.toObject(ActivitySessionDto::class.java)
+                val session = dto?.let { ActivitySessionMapper.dtoToDomain(snapshot.id, it) }
+                trySend(session)
+            }
+
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun updateSessionNotes(sessionId: String, notes: String) {
+        sessionsCollection.document(sessionId)
+            .update("notes", notes)
+            .await()
+    }
 }
 

@@ -7,7 +7,8 @@ data class ActivitySession(
     val endedAtEpochMillis: Long?,
     val route: List<TrackingPoint>,
     val stats: ActivityStats,
-    val status: ActivityStatus
+    val status: ActivityStatus,
+    val notes: String? = null
 ) {
     init {
         require(id.isNotBlank()) { "id cannot be blank" }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.NavigationBar
@@ -23,20 +24,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.volleylord.gps_tracker.presentation.navigation.AppDestination
 import com.volleylord.gps_tracker.presentation.navigation.NavigationCommand
 import com.volleylord.gps_tracker.presentation.navigation.NavigationManager
 import com.volleylord.gps_tracker.presentation.ui.screens.dashboard.DashboardRoute
 import com.volleylord.gps_tracker.presentation.ui.screens.history.HistoryRoute
+import com.volleylord.gps_tracker.presentation.ui.screens.history.detail.HistoryDetailRoute
 import com.volleylord.gps_tracker.presentation.ui.screens.login.LoginScreen
 import com.volleylord.gps_tracker.presentation.ui.screens.tracker.TrackerRoute
 import com.volleylord.gps_tracker.presentation.ui.theme.GpsTrackerTheme
 import kotlinx.coroutines.flow.collectLatest
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun GpsTrackerApp(
     navigationManager: NavigationManager
@@ -157,7 +162,25 @@ fun GpsTrackerApp(
                         TrackerRoute()
                     }
                     composable(AppDestination.History.route) {
-                        HistoryRoute()
+                        HistoryRoute(
+                            onSessionSelected = { sessionId ->
+                                navigationManager.navigateTo(
+                                    AppDestination.HistoryDetail.route.replace(
+                                        "{sessionId}",
+                                        sessionId
+                                    )
+                                )
+                            }
+                        )
+                    }
+                    composable(
+                        route = AppDestination.HistoryDetail.route,
+                        arguments = listOf(
+                            navArgument("sessionId") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
+                        HistoryDetailRoute(sessionId = sessionId)
                     }
                 }
             }
