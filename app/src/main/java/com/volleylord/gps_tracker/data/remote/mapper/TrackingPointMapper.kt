@@ -15,7 +15,8 @@ object TrackingPointMapper {
         longitude = point.longitude,
         altitudeMeters = point.altitudeMeters,
         timestampEpochMillis = point.timestampEpochMillis,
-        elapsedTimeMillis = point.elapsedTime.inWholeMilliseconds
+        elapsedTimeMillis = point.elapsedTime.inWholeMilliseconds,
+        speedMps = point.speedMps
     )
 
     fun dtoToDomain(dto: TrackingPointDto): TrackingPoint = TrackingPoint(
@@ -23,7 +24,8 @@ object TrackingPointMapper {
         longitude = dto.longitude,
         altitudeMeters = dto.altitudeMeters,
         timestampEpochMillis = dto.timestampEpochMillis,
-        elapsedTime = dto.elapsedTimeMillis.milliseconds
+        elapsedTime = dto.elapsedTimeMillis.milliseconds,
+        speedMps = dto.speedMps
     )
 }
 

@@ -169,7 +169,7 @@ private fun TrackerStats(uiState: TrackerUiState) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                StatItem(title = "Distance", value = String.format("%.2f m", uiState.distanceMeters))
+                StatItem(title = "Distance", value = String.format("%.2f km", uiState.distanceMeters / 1000.0))
                 StatItem(title = "Steps", value = uiState.stepCount.toString())
                 StatItem(title = "Time", value = uiState.elapsedTime)
             }
