@@ -23,6 +23,8 @@ data class TrackerUiState(
     val distanceMeters: Double = 0.0,
     val stepCount: Long = 0L,
     val elapsedTime: String = "00:00",
+    val route: List<com.volleylord.gps_tracker.domain.model.TrackingPoint> = emptyList(),
+    val currentLocation: com.volleylord.gps_tracker.domain.model.TrackingPoint? = null,
     val errorMessage: String? = null
 )
 
@@ -58,12 +60,15 @@ class TrackerViewModel @Inject constructor(
                         val minutes = session.stats.elapsed.inWholeMinutes
                         val seconds = (session.stats.elapsed.inWholeSeconds % 60)
                         val isPaused = session.status is ActivityStatus.Paused
+                        val currentLocation = session.route.lastOrNull()
                         _uiState.value = _uiState.value.copy(
                             isTracking = true,
                             isPaused = isPaused,
                             distanceMeters = session.stats.distanceMeters,
                             stepCount = session.stats.stepCount,
-                            elapsedTime = String.format("%02d:%02d", minutes, seconds)
+                            elapsedTime = String.format("%02d:%02d", minutes, seconds),
+                            route = session.route,
+                            currentLocation = currentLocation
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(
@@ -71,7 +76,9 @@ class TrackerViewModel @Inject constructor(
                             isPaused = false,
                             distanceMeters = 0.0,
                             stepCount = 0L,
-                            elapsedTime = "00:00"
+                            elapsedTime = "00:00",
+                            route = emptyList(),
+                            currentLocation = null
                         )
                     }
                 }
