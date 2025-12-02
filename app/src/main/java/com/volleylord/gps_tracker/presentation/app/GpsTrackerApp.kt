@@ -126,8 +126,15 @@ fun GpsTrackerApp(
                         TrackerBottomBar(
                             currentRoute = currentRoute,
                             onDestinationSelected = { destination ->
-                                navigationManager.navigateTo(destination.route) {
-                                    launchSingleTop = true
+                                if (destination.route != currentRoute) {
+                                    navigationManager.navigateTo(destination.route) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                        popUpTo(AppDestination.Login.route) {
+                                            saveState = true
+                                            inclusive = false
+                                        }
+                                    }
                                 }
                             }
                         )
@@ -180,7 +187,10 @@ fun GpsTrackerApp(
                         )
                     ) { backStackEntry ->
                         val sessionId = backStackEntry.arguments?.getString("sessionId") ?: return@composable
-                        HistoryDetailRoute(sessionId = sessionId)
+                        HistoryDetailRoute(
+                            sessionId = sessionId,
+                            onBack = { navController.navigateUp() }
+                        )
                     }
                 }
             }
