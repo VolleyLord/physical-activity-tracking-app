@@ -98,6 +98,7 @@ dependencies {
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
     implementation(libs.play.services.auth)
+    implementation(libs.maps.utils.android)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
@@ -107,6 +108,8 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.ui)
     ksp(libs.room.compiler)
 
     // Hilt
@@ -114,6 +117,9 @@ dependencies {
     ksp(libs.hilt.android.compiler)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.navigation.compose)
+
+    // Coil
+    implementation(libs.coil.compose)
 
     // Testing
     testImplementation(libs.junit)

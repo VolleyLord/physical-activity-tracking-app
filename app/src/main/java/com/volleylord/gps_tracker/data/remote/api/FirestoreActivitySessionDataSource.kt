@@ -109,5 +109,12 @@ class FirestoreActivitySessionDataSource @Inject constructor(
             .update("notes", notes)
             .await()
     }
+
+    /**
+     * Deletes a session document from Firestore.
+     */
+    suspend fun deleteSession(sessionId: String) {
+        sessionsCollection.document(sessionId).delete().await()
+    }
 }
 

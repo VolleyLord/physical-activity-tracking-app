@@ -22,13 +22,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ActivitySessionRepository implementation using Firestore.
@@ -277,6 +276,14 @@ class ActivitySessionRepositoryImpl @Inject constructor(
         if (_activeSessionId.value == sessionId) {
             _currentNotes.value = notes
         }
+    }
+
+    override suspend fun deleteSession(sessionId: String) {
+        // Prevent deleting active session
+        if (_activeSessionId.value == sessionId) {
+            throw IllegalStateException("Cannot delete active session")
+        }
+        firestoreDataSource.deleteSession(sessionId)
     }
 }
 

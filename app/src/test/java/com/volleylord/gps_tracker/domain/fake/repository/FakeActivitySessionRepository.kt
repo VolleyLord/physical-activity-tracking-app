@@ -128,4 +128,16 @@ class FakeActivitySessionRepository : ActivitySessionRepository {
             activeSessionState.value = active.copy(notes = notes)
         }
     }
+
+    override suspend fun deleteSession(sessionId: String) {
+        // Prevent deleting active session
+        val active = activeSessionState.value
+        if (active?.id == sessionId) {
+            throw IllegalStateException("Cannot delete active session")
+        }
+        // Remove from history
+        historyState.update { sessions ->
+            sessions.filter { it.id != sessionId }
+        }
+    }
 }
