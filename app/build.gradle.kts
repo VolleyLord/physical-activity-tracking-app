@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,6 +10,17 @@ plugins {
     alias(libs.plugins.secrets.gradle)
     alias(libs.plugins.ksp)
 }
+
+// Load secrets from local.properties
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use { load(it) }
+    }
+}
+
+fun getLocalProperty(key: String): String =
+    localProperties.getProperty(key) ?: ""
 
 android {
     namespace = "com.volleylord.gps_tracker"
@@ -24,6 +36,14 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "com.volleylord.gps_tracker.testing.HiltTestRunner"
+
+        val mapsApiKey = getLocalProperty("MAPS_API_KEY")
+        val staticMapId = getLocalProperty("STATIC_MAP_ID")
+        val mapsMapId = getLocalProperty("MAPS_MAP_ID")
+
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("String", "STATIC_MAP_ID", "\"$staticMapId\"")
+        buildConfigField("String", "MAPS_MAP_ID", "\"$mapsMapId\"")
     }
 
     buildTypes {
@@ -46,6 +66,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildFeatures.buildConfig = true
     }
 }
 
