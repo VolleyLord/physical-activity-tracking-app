@@ -1,5 +1,6 @@
 package com.volleylord.gps_tracker.di
 
+import com.volleylord.gps_tracker.domain.usecase.DeleteActivitySessionUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveActivityHistoryUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveAuthStateUseCase
 import com.volleylord.gps_tracker.domain.usecase.ObserveCurrentSessionUseCase
@@ -13,6 +14,7 @@ import com.volleylord.gps_tracker.domain.usecase.SignUpUseCase
 import com.volleylord.gps_tracker.domain.usecase.StartActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.StopActivityTrackingUseCase
 import com.volleylord.gps_tracker.domain.usecase.UpdateSessionNotesUseCase
+import com.volleylord.gps_tracker.domain.usecase.impl.DeleteActivitySessionUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveActivityHistoryUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveAuthStateUseCaseImpl
 import com.volleylord.gps_tracker.domain.usecase.impl.ObserveCurrentSessionUseCaseImpl
@@ -99,5 +101,10 @@ interface UseCaseModule {
     fun bindUpdateSessionNotesUseCase(
         impl: UpdateSessionNotesUseCaseImpl
     ): UpdateSessionNotesUseCase
+
+    @Binds
+    fun bindDeleteActivitySessionUseCase(
+        impl: DeleteActivitySessionUseCaseImpl
+    ): DeleteActivitySessionUseCase
 }
 

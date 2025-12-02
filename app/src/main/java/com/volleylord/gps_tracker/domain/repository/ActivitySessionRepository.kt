@@ -15,6 +15,7 @@ interface ActivitySessionRepository {
     fun observeHistory(limit: Int): Flow<List<ActivitySession>>
     fun observeSession(sessionId: String): Flow<ActivitySession?>
     suspend fun updateSessionNotes(sessionId: String, notes: String)
+    suspend fun deleteSession(sessionId: String)
     val isPaused: StateFlow<Boolean>
 }
 
