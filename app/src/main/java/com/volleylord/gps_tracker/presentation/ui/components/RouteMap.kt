@@ -20,6 +20,7 @@ import com.google.android.gms.maps.GoogleMapOptions
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -27,6 +28,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.volleylord.gps_tracker.BuildConfig
 import com.volleylord.gps_tracker.domain.model.TrackingPoint
 import kotlinx.coroutines.tasks.await
 
@@ -34,7 +36,10 @@ import kotlinx.coroutines.tasks.await
 fun RouteMap(
     route: List<TrackingPoint>,
     currentLocation: TrackingPoint?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isTrackingEnabled: Boolean = true,
+    enableMapInteractions: Boolean = true,
+    showMyLocation: Boolean = isTrackingEnabled
 ) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
@@ -44,19 +49,17 @@ fun RouteMap(
     val routePoints = remember(route) { route.map { LatLng(it.latitude, it.longitude) } }
     val currentLocationLatLng = remember(currentLocation) { currentLocation?.let { LatLng(it.latitude, it.longitude) } }
 
-    val cameraPositionState = rememberCameraPositionState {
-        position = DEFAULT_CAMERA_POSITION
-    }
+    val cameraPositionState = rememberCameraPositionState()
 
     val hasLocationPermission = remember {
         ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
     }
 
     suspend fun animateCamera(target: LatLng, zoom: Float) {
@@ -96,7 +99,7 @@ fun RouteMap(
     }
 
     LaunchedEffect(isMapLoaded, cameraInitialized, hasLocationPermission) {
-        if (!isMapLoaded || cameraInitialized) return@LaunchedEffect
+        if (!isMapLoaded || cameraInitialized || !isTrackingEnabled) return@LaunchedEffect
 
         val fallbackLocation = if (hasLocationPermission) {
             runCatching {
@@ -110,30 +113,49 @@ fun RouteMap(
             null
         }
 
-        val target = fallbackLocation?.let { LatLng(it.latitude, it.longitude) }
-            ?: DEFAULT_CAMERA_POSITION.target
-        val zoom = fallbackLocation?.let { 16f } ?: DEFAULT_CAMERA_POSITION.zoom
-
-        animateCamera(target, zoom)
+        if (fallbackLocation != null) {
+            val target = LatLng(fallbackLocation.latitude, fallbackLocation.longitude)
+            animateCamera(target, 16f)
+        }
         cameraInitialized = true
     }
 
-    val mapUiSettings = remember(hasLocationPermission) {
+    val mapUiSettings = remember(hasLocationPermission, enableMapInteractions) {
         MapUiSettings(
             mapToolbarEnabled = false,
             compassEnabled = true,
-            zoomControlsEnabled = true,
-            myLocationButtonEnabled = hasLocationPermission,
-            zoomGesturesEnabled = true,
-            scrollGesturesEnabled = true,
-            rotationGesturesEnabled = true,
-            tiltGesturesEnabled = true
+            zoomControlsEnabled = enableMapInteractions,
+            myLocationButtonEnabled = hasLocationPermission && enableMapInteractions,
+            zoomGesturesEnabled = enableMapInteractions,
+            scrollGesturesEnabled = enableMapInteractions,
+            rotationGesturesEnabled = enableMapInteractions,
+            tiltGesturesEnabled = enableMapInteractions
         )
     }
 
-    val mapProperties = remember(hasLocationPermission) {
+    val mapStyleOptions = remember {
+        MapStyleOptions(
+            """
+            [
+                {
+                    "elementType": "geometry",
+                    "stylers": [{ "color": "#242f3e" }]
+                },
+                {
+                    "elementType": "labels.text.fill",
+                    "stylers": [{ "color": "#746855" }]
+                }
+            ]
+            """.trimIndent()
+        )
+    }
+
+    val mapProperties = remember(hasLocationPermission, showMyLocation) {
         MapProperties(
-            isMyLocationEnabled = hasLocationPermission
+            isMyLocationEnabled = hasLocationPermission && showMyLocation,
+            mapStyleOptions = mapStyleOptions,
+            minZoomPreference = 10f,
+            maxZoomPreference = 20f
         )
     }
 
@@ -144,7 +166,7 @@ fun RouteMap(
         properties = mapProperties,
         onMapLoaded = { isMapLoaded = true },
         googleMapOptionsFactory = {
-            GoogleMapOptions().mapId(MAP_ID)
+            GoogleMapOptions().mapId(BuildConfig.MAPS_MAP_ID)
         }
     ) {
         if (routePoints.size > 1) {
@@ -163,10 +185,3 @@ fun RouteMap(
         }
     }
 }
-
-private val DEFAULT_CAMERA_POSITION = CameraPosition.fromLatLngZoom(
-    LatLng(55.7558, 37.6173),
-    11f
-)
-
-private const val MAP_ID = "9ddcdaed646814b4220318d0"

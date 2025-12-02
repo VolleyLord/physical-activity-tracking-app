@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.volleylord.gps_tracker.presentation.ui.components.RouteMap
 import com.volleylord.gps_tracker.presentation.ui.components.TrackingPermissionDialog
@@ -87,7 +86,10 @@ fun TrackerScreen(
                 RouteMap(
                     route = uiState.route,
                     currentLocation = uiState.currentLocation,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    isTrackingEnabled = true,
+                    enableMapInteractions = true,  // Always enable interactions
+                    showMyLocation = true  // Always show location
                 )
             }
 
@@ -236,7 +238,7 @@ private fun TrackerActionButtons(
             !uiState.isTracking -> {
                 SingleActionButton(
                     text = "Start",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color(0xFF2196F3),
                     onClick = {
                         if (!hasRequiredPermissions) onShowPermissionDialog() else onStartTracking()
                     },
@@ -272,7 +274,7 @@ private fun TrackerActionButtons(
             else -> {
                 SingleActionButton(
                     text = "Pause",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color(0xFF2196F3),
                     onClick = onPauseTracking,
                     enabled = !uiState.isLoading
                 )
