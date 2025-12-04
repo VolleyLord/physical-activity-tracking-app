@@ -51,6 +51,8 @@ Sessions are synced to Firebase, so history is preserved across devices once the
 ![Selection Mode](screenshots/selection_mode.jpg)
 ```
 
+
+
 ---
 
 ### 🏗️ 4. Project Structure & Architecture
