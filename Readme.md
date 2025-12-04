@@ -42,14 +42,14 @@ Sessions are synced to Firebase, so history is preserved across devices once the
 - **History Detail (Route + stats + comments)**
 - **Selection Mode & Delete**
 
-```markdown
+
 ![Login](screenshots/login.jpg)
 ![Dashboard](screenshots/dashboard.jpg)
 ![Tracker](screenshots/tracking_in_progress.jpg)
 ![History](screenshots/history.jpg)
 ![History Detail](screenshots/history_details.jpg)
 ![Selection Mode](screenshots/selection_mode.jpg)
-```
+
 
 
 
